@@ -13,7 +13,10 @@ npm run dev
 
 ## 自动部署
 
-向 `main` 分支推送代码后，GitHub Actions 会自动执行类型检查、构建并发布到 GitHub Pages。仓库地址和站点地址在部署完成后补充到这里。
+向 `main` 分支推送代码后，GitHub Actions 会自动执行类型检查、构建并发布到 GitHub Pages。
+
+- 仓库：[hui527/hui527.github.io](https://github.com/hui527/hui527.github.io)
+- 网站：[https://hui527.github.io/](https://hui527.github.io/)
 
 ## 更新网站
 
