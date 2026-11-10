@@ -2183,6 +2183,7 @@ export default function App() {
   const [quoteReturn, setQuoteReturn] = useState(0)
   const [quoteActive, setQuoteActive] = useState(false)
   const [quoteHeld, setQuoteHeld] = useState(false)
+  const [stillMotionRequested, setStillMotionRequested] = useState(false)
   const quoteActiveRef = useRef(false)
   const quoteHoldIntent = useRef(false)
   const playbackRequest = useRef(0)
@@ -2195,6 +2196,9 @@ export default function App() {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const scene = themes[activeIndex]
   const reduced = useReducedMotion()
+  // Explicit still-frame interaction enables its choreography for this scene.
+  // Automatic motion continues to follow the system preference.
+  const interactionReduced = Boolean(reduced) && !stillMotionRequested
   const [language, setLanguage] = useState<Language>("zh")
   const [cinema, setCinema] = useState(false)
   const { status: playbackStatus, ready, paused: still, play: playFilm, pause: pauseFilm } = useVideoPlayback(video, scene.video)
@@ -2203,6 +2207,7 @@ export default function App() {
     if (!element) return
     const request = ++playbackRequest.current
     if (!element.paused && playbackStatus !== "error") {
+      setStillMotionRequested(true)
       quoteHoldIntent.current = true
       setQuoteHeld(true)
       if (!quoteActiveRef.current) {
@@ -2221,6 +2226,7 @@ export default function App() {
     playbackRequest.current += 1
     quoteHoldIntent.current = false
     setQuoteHeld(false)
+    setStillMotionRequested(false)
   }, [activeIndex])
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false)
   const [about, setAbout] = useState(false)
@@ -2414,6 +2420,7 @@ export default function App() {
     } as React.CSSProperties}>
       <section
         id="top"
+        data-still-motion={stillMotionRequested || undefined}
         className={`hero ${cinema ? "cinema" : ""} ${previewVisible ? "is-preview" : ""} ${still ? "is-still" : ""} ${ready ? "has-video-frame" : ""} ${chapter === "work" ? "is-work-chapter" : ""}`}
         aria-label={text.heroLabel}
       >
@@ -2439,7 +2446,7 @@ export default function App() {
         </div>
 
         <QuoteFlight sourceRef={quoteSource} bundleRef={quoteBundle} text={text.manifesto} run={quoteRun} mode={quoteMode}
-          returnRequest={quoteReturn} held={quoteHeld} enabled={quoteEnabled} reduced={Boolean(reduced)}
+          returnRequest={quoteReturn} held={quoteHeld} enabled={quoteEnabled} reduced={interactionReduced}
           exclusion={scene.quoteExclusion} onActiveChange={onQuoteActiveChange} />
 
         <AnimatePresence onExitComplete={finishPreviewExit}>
@@ -2664,7 +2671,7 @@ export default function App() {
                 animate={{ opacity: chapter === "home" ? 1 : 0 }}
                 transition={{ duration: reduced ? 0 : .6 }}
               >
-                <IdleWidgets language={language} held={quoteHeld} enabled={quoteEnabled} reduced={Boolean(reduced)} />
+                <IdleWidgets language={language} held={quoteHeld} enabled={quoteEnabled} reduced={interactionReduced} />
               </motion.div>
               <motion.footer
                 className="bottombar"
