@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react"
 import { createPortal } from "react-dom"
+import { useVideoPlayback, type PlaybackStatus } from "./useVideoPlayback"
 
 import {
 
@@ -41,9 +42,9 @@ const themes: readonly Theme[] = [
   {
     id: "01",
 
-    image: "/media/palace-hero.png",
+    image: "/media/palace-hero.webp",
 
-    video: "/media/palace-loop-web.mp4",
+    video: "/media/palace-loop-1080.mp4",
 
     name: { zh: "王国公主", en: "Kingdom Princess" },
 
@@ -445,12 +446,14 @@ function PlaybackControl({
   text,
   language,
   still,
+  status,
   onStill,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>
   text: Copy
   language: Language
   still: boolean
+  status: PlaybackStatus
   onStill: () => void
 }) {
   const progressCircle = useRef<SVGCircleElement>(null)
@@ -500,30 +503,39 @@ function PlaybackControl({
       updateProgress()
     }
     const progressEvents = ["timeupdate", "loadedmetadata", "durationchange", "seeked", "emptied"] as const
-    const stopEvents = ["pause", "ended", "emptied"] as const
+    const stopEvents = ["pause", "waiting", "ended", "emptied"] as const
 
     start()
     progressEvents.forEach((event) => video.addEventListener(event, updateProgress))
     stopEvents.forEach((event) => video.addEventListener(event, stop))
-    video.addEventListener("play", start)
+    video.addEventListener("playing", start)
     return () => {
       disposed = true
       stop()
       progressEvents.forEach((event) => video.removeEventListener(event, updateProgress))
       stopEvents.forEach((event) => video.removeEventListener(event, stop))
-      video.removeEventListener("play", start)
+      video.removeEventListener("playing", start)
     }
   }, [circumference, videoRef])
 
   const zh = language === "zh"
+  const loading = status === "loading"
+  const retry = status === "error"
+  const action = retry ? (zh ? "重新加载影片" : "Reload film") : still ? text.play : text.pause
+  const label = loading
+    ? (zh ? "影片缓冲中" : "Buffering film")
+    : status === "blocked" ? (zh ? "点击播放影片" : "Click to play")
+    : retry ? (zh ? "加载失败，点击重试" : "Failed to load · retry")
+    : still ? (zh ? "画面已定格" : "Frozen") : (zh ? "画面流动中" : "In motion")
   return (
     <button
+      data-playback={status}
       className={`playback-still ${still ? "is-paused is-on" : "is-playing"}`}
       type="button"
       onClick={onStill}
       aria-pressed={still}
-      aria-label={zh ? "定格影片" : "Freeze film"}
-      title={still ? text.play : text.pause}
+      aria-label={action}
+      title={action}
     >
       <span className="playback-gauge" aria-hidden="true">
         <svg className="playback-progress" viewBox="0 0 48 48">
@@ -538,7 +550,7 @@ function PlaybackControl({
       </span>
       <span className="widget-copy">
         <small>{zh ? "静帧" : "Still frame"}</small>
-        <b>{still ? (zh ? "画面已定格" : "Frozen") : (zh ? "画面流动中" : "In motion")}</b>
+        <b role="status">{label}</b>
       </span>
     </button>
   )
@@ -1249,6 +1261,8 @@ function QuoteCycle({
 
     const frame = () => {
 
+      if (video.paused || video.ended) { handle = null; return }
+
       applyPhase()
 
       handle = supportsVideoFrames
@@ -1279,15 +1293,17 @@ function QuoteCycle({
 
     applyPhase()
     if (!video.paused) start()
-    video.addEventListener("play", start)
+    video.addEventListener("playing", start)
     video.addEventListener("pause", stop)
+    video.addEventListener("waiting", stop)
     video.addEventListener("seeked", applyPhase)
     video.addEventListener("loadedmetadata", applyPhase)
 
     return () => {
       stop()
-      video.removeEventListener("play", start)
+      video.removeEventListener("playing", start)
       video.removeEventListener("pause", stop)
+      video.removeEventListener("waiting", stop)
       video.removeEventListener("seeked", applyPhase)
       video.removeEventListener("loadedmetadata", applyPhase)
     }
@@ -2180,46 +2196,27 @@ export default function App() {
   const scene = themes[activeIndex]
   const reduced = useReducedMotion()
   const [language, setLanguage] = useState<Language>("zh")
-  const [ready, setReady] = useState(false)
   const [cinema, setCinema] = useState(false)
-  const [still, setStill] = useState(true)
-  useEffect(() => {
-    const element = video.current
-    if (!element) return
-    const syncPlayback = () => setStill(element.paused)
-    syncPlayback()
-    element.addEventListener("play", syncPlayback)
-    element.addEventListener("pause", syncPlayback)
-    element.addEventListener("emptied", syncPlayback)
-    return () => {
-      element.removeEventListener("play", syncPlayback)
-      element.removeEventListener("pause", syncPlayback)
-      element.removeEventListener("emptied", syncPlayback)
-    }
-  }, [activeIndex])
+  const { status: playbackStatus, ready, paused: still, play: playFilm, pause: pauseFilm } = useVideoPlayback(video, scene.video)
   const toggleStill = useCallback(async () => {
     const element = video.current
     if (!element) return
     const request = ++playbackRequest.current
-    if (!element.paused) {
+    if (!element.paused && playbackStatus !== "error") {
       quoteHoldIntent.current = true
       setQuoteHeld(true)
       if (!quoteActiveRef.current) {
         setQuoteMode("ambient")
         setQuoteRun((value) => value + 1)
       }
-      element.pause()
+      pauseFilm()
       return
     }
-    try {
-      await element.play()
-      if (request !== playbackRequest.current || element !== video.current || element.paused) return
-      quoteHoldIntent.current = false
-      setQuoteHeld(false)
-    } catch {
-      if (request === playbackRequest.current) setStill(element.paused)
-    }
-  }, [])
+    const started = await playFilm()
+    if (!started || request !== playbackRequest.current || element !== video.current || element.paused) return
+    quoteHoldIntent.current = false
+    setQuoteHeld(false)
+  }, [playFilm, pauseFilm, playbackStatus])
   useEffect(() => {
     playbackRequest.current += 1
     quoteHoldIntent.current = false
@@ -2291,7 +2288,6 @@ export default function App() {
   }
   const confirmPreview = () => {
     if (previewIndex !== null) {
-      if (activeIndex !== previewIndex) setReady(false)
       setActiveIndex(previewIndex)
     }
     setPreviewPhase(null)
@@ -2418,28 +2414,25 @@ export default function App() {
     } as React.CSSProperties}>
       <section
         id="top"
-        className={`hero ${cinema ? "cinema" : ""} ${previewVisible ? "is-preview" : ""} ${still ? "is-still" : ""} ${chapter === "work" ? "is-work-chapter" : ""}`}
+        className={`hero ${cinema ? "cinema" : ""} ${previewVisible ? "is-preview" : ""} ${still ? "is-still" : ""} ${ready ? "has-video-frame" : ""} ${chapter === "work" ? "is-work-chapter" : ""}`}
         aria-label={text.heroLabel}
       >
         <div className="media">
-          <img className="still" src={scene.image} alt="" />
+          <img className="still" src={scene.image} alt="" fetchPriority="high" decoding="async" />
           <motion.video
             ref={video}
-            src={scene.video}
             poster={scene.image}
             muted
             loop
             playsInline
-            autoPlay
             preload="auto"
             aria-label={text.filmLabel}
             initial={{ opacity: 0 }}
             animate={{ opacity: ready ? 1 : 0 }}
             transition={{
               duration: reduced ? 0 : 1.7,
-              delay: reduced ? 0 : 0.8,
+              delay: 0,
             }}
-            onCanPlay={() => setReady(true)}
           />
           <div className="grade" />
           <div className="grain" />
@@ -2682,7 +2675,7 @@ export default function App() {
                 transition={{ duration: reduced ? 0 : .6 }}
               >
                 <PlaybackControl videoRef={video} text={text}
-                  language={language} still={still} onStill={toggleStill} />
+                  language={language} still={still} status={playbackStatus} onStill={toggleStill} />
                 <button
                   className="cinema-button"
                   onClick={() => setCinema(true)}

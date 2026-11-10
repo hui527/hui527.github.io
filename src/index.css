@@ -748,7 +748,7 @@
 }
 
 /* Theme-native instruments: no background panel; film control highlights on intent. */
-.hero.is-still .still { animation: none !important; }
+.hero.is-still .still, .hero.has-video-frame .still { animation: none !important; }
 .idle-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .idle-widget {
   position: absolute; pointer-events: auto; color: var(--ivory);
