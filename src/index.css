@@ -28,7 +28,7 @@
 
   html { scroll-behavior: smooth; }
 
-  body { min-width: 320px; margin: 0; overflow-x: hidden; background: var(--scene-bg, #171512); }
+  body { min-width: 320px; margin: 0; overflow-x: clip; background: var(--scene-bg, #171512); }
 
   button, a { color: inherit; }
 
@@ -391,8 +391,9 @@
 .cinema .grade { opacity: .2; }
 
 .about-panel {
-  position: absolute; z-index: 30; top: 0; right: 0; display: flex; width: min(490px,100vw); height: 100%;
+  position: fixed; z-index: 30; top: 0; right: 0; display: flex; width: min(490px,100vw); height: 100svh;
   flex-direction: column; justify-content: center; padding: 70px; border-left: 1px solid var(--hair);
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
   background: #191512ee; box-shadow: -30px 0 100px #0006; backdrop-filter: blur(22px);
 }
 .about-panel .close { position: absolute; top: 36px; right: 36px; display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid var(--hair); background: none; cursor: pointer; }
@@ -474,7 +475,7 @@
   opacity: .8; transform: translate(-50%, 0);
 }
 
-.work-index { min-height: 78vh; padding: 120px clamp(30px,7vw,120px); background: radial-gradient(circle at 82% 20%,#83392f2e,transparent 30%),var(--scene-bg, #171512); pointer-events: auto; }
+.work-index { min-height: 100svh; padding: 120px clamp(30px,7vw,120px); background: radial-gradient(circle at 82% 20%,#83392f2e,transparent 30%),var(--scene-bg, #171512); pointer-events: auto; }
 .work-index header { display: grid; grid-template-columns: 1fr 1fr; align-items: end; padding-bottom: 52px; border-bottom: 1px solid #f2eadc38; }
 .work-index header small { grid-column: 1/-1; margin-bottom: 60px; color: var(--gold); font-size: 8px; letter-spacing: .24em; }
 .work-index h2 { margin: 0; font: 400 clamp(46px,8vw,118px) 'Noto Serif SC'; letter-spacing: .08em; }
@@ -572,14 +573,6 @@
 
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-  html { scroll-behavior: auto; }
-
-  *, *:before, *:after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-
-}
-
 /* UI refinement 2026-10-31 — typography, idle choreography, stable hit areas. */
 .nav-symbol > svg { width: 18px; height: 18px; overflow: visible; transition: transform .5s var(--ease), color .3s; }
 .nav-action > b { transition: color .3s, transform .45s var(--ease); }
@@ -622,11 +615,6 @@
   .chapter-control { width: 104px; min-width: 104px; }
   .cinema-button { max-width: 80px; gap: 6px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .chapter-control .chapter-arrow, .nav-action *, .cinema-button svg path, .scene-trigger *, .language-toggle::before, .language-toggle::after { animation: none !important; }
-  .chapter-control:is(:hover,:focus-visible) .chapter-arrow, .nav-action:is(:hover,:focus-visible) > b, .nav-action.contact:is(:hover,:focus-visible) svg, .cinema-button:is(:hover,:focus-visible) svg path { transform: none; }
-}
-
 /* Contact identities use the active scene palette; QR stays high contrast. */
 .contact-panel {
   width: min(490px, 100%);
@@ -739,14 +727,6 @@
   .contact-method-detail { font-size: 12px; }
 
 }
-@media (prefers-reduced-motion: reduce) {
-
-  .contact-brand, .contact-method-action, .wechat-profile-link { transition: none; }
-
-  .contact-method:hover .contact-brand, .contact-method:hover .contact-method-action { transform: none; }
-
-}
-
 /* Theme-native instruments: no background panel; film control highlights on intent. */
 .hero.is-still .still, .hero.has-video-frame .still { animation: none !important; }
 .idle-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
@@ -901,14 +881,6 @@
   .clock-route { gap: 8px; }
 
 }
-@media (prefers-reduced-motion: reduce) {
-
-  .clock-dial-system, .clock-fragment, .clock-orbit, .clock-copy { animation: none !important; }
-
-  .clock-celestial, .clock-destination i, .still-frame i { transition: none !important; }
-
-}
-
 /* Merged film control and theme hint 2026-11-08. */
 
 @media (max-width: 560px) {
@@ -967,14 +939,6 @@
   .scene-menu { top: 100%; left: 0; transform: none; width: min(340px, calc(100vw - 28px)); max-height: calc(100svh - 220px); overflow-y: auto; overscroll-behavior: contain; }
 
 }
-@media (prefers-reduced-motion: reduce) {
-
-  .scene-hint-phrase, .scene-hint-character { animation: none !important; transform: none !important; opacity: 1; }
-
-  .bottombar .playback-still, .playback-still .still-frame i { transition: none !important; }
-
-}
-
 /* The flight layer is independent of the entrance mask and never captures input. */
 .quote-trigger { position: relative; display: inline-block; max-width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; line-height: inherit; text-align: inherit; cursor: pointer; text-shadow: inherit; }
 .quote-trigger:disabled { cursor: default; }
@@ -986,10 +950,6 @@
 .quote-flight { position: absolute; z-index: 9; inset: 0; visibility: hidden; pointer-events: none; color: var(--ivory); }
 .quote-flight-glyph { position: absolute; top: 0; left: 0; display: block; white-space: pre; transform-origin: center; will-change: transform, opacity; backface-visibility: hidden; text-shadow: 0 2px 20px var(--scene-bg), 0 0 28px var(--scene-bg); }
 .quote-flight-glyph.is-emphasis { color: var(--ivory); text-shadow: 0 2px 20px var(--scene-bg), 0 0 26px color-mix(in srgb, var(--gold), transparent 55%); }
-@media (prefers-reduced-motion: reduce) {
-  .hero:not([data-still-motion="true"]) .quote-flight, .quote-flight-hint { display: none; }
-}
-
 /* Scene notes use the active theme's type, color and image atmosphere. */
 .scene-intro-trigger {
   position: absolute; top: 112px; right: 42px; z-index: 7;
@@ -1042,10 +1002,6 @@
   .intro-rule { margin: 10px 0; }
   .scene-intro p { font-size: 11px; line-height: 1.9; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .intro-symbol b, .intro-symbol i { transition: none; }
-}
-
 /* Clones become visible before their matching originals disappear in the same layout frame. */
 .manifesto[data-quote-flying="true"] .quote-trigger .wave-visual,
 .manifesto[data-quote-flying="true"] blockquote .wave-visual,
@@ -1055,10 +1011,6 @@
 .quote-flight-line, .quote-flight-diamond { text-shadow: none; }
 .quote-flight-line { box-shadow: 0 0 13px color-mix(in srgb, var(--gold), transparent 65%); }
 .quote-flight-diamond { box-shadow: 0 0 15px color-mix(in srgb, var(--gold), transparent 60%); }
-
-@media (prefers-reduced-motion: reduce) {
-  .astrolabe .clock-copy, .playback-still .widget-copy { transition: none; }
-}
 
 /* Glyphs are painted at 3x size and downsampled by their transform. Depth uses
    scale, opacity and drawing order; the letterforms remain sharply focused. */
@@ -1116,10 +1068,6 @@
 .clock-space-label b { font: 400 15px/1.2 Georgia,serif; font-variant-numeric: tabular-nums; letter-spacing: .1em; }
 .clock-space-label span { font: 9px/1.2 Arial,sans-serif; letter-spacing: .12em; }
 .clock-space-label i { font-style: normal; opacity: .4; }
-@media (prefers-reduced-motion: reduce) {
-  .hero:not([data-still-motion="true"]) .clock-space { display: none; }
-}
-
 /* Star needle + intermeshed 16/8-tooth gear; theme tokens inherit from main. */
 .star-gear-cursor {
   --sg-rotation: 0deg;
@@ -1176,16 +1124,11 @@
   html.custom-cursor-active :is(input,textarea,[contenteditable]:not([contenteditable="false"])) { cursor: text !important; }
   html.custom-cursor-active :is(select,iframe,[data-cursor="native"]) { cursor: auto !important; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .star-gear-cursor, .star-gear-cursor * { animation: none !important; transition-duration: 0s !important; }
-}
-
 /* About profile: compact software grid above the corner portrait. */
 .about-panel.has-portrait {
   --portrait-size: clamp(220px, 31vh, 340px);
   justify-content: flex-start;
   padding: clamp(78px, 10vh, 96px) 54px var(--portrait-size);
-  overflow: hidden;
 }
 .about-panel.has-portrait > small,
 .about-panel.has-portrait > h2,
@@ -1237,11 +1180,10 @@
 .about-portrait-real { opacity: 0; }
 .about-portrait.is-real .about-portrait-cg { opacity: 0; }
 .about-portrait.is-real .about-portrait-real { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .about-portrait-image { transition: none; } }
-
 /* Keep the profile clear of the portrait in short desktop preview windows. */
 @media (min-width: 901px) and (max-height: 700px) {
-  .about-panel.has-portrait { padding-top: 56px; }
+  .about-panel.has-portrait { padding-top: 56px; padding-bottom: 0; }
+  .about-panel.has-portrait .about-portrait { position: relative; right: auto; bottom: auto; align-self: flex-end; flex-shrink: 0; margin: 24px -54px 0 0; }
   .about-panel.has-portrait > h2 { margin-top: 16px; }
   .about-software { margin-top: 18px; padding-top: 14px; }
   .about-software h3 { margin-bottom: 12px; }

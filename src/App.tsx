@@ -4,7 +4,7 @@ import portraitReal from "../portrait-real.webp"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
-import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, animate, motion, useReducedMotionConfig } from "motion/react"
 import { createPortal } from "react-dom"
 import { useVideoPlayback, type PlaybackStatus } from "./useVideoPlayback"
 
@@ -184,21 +184,22 @@ const copy = {
 
 type Copy = { [Key in keyof typeof copy.zh]: typeof copy.zh[Key] extends readonly string[] ? readonly string[] : string }
 
-function SceneMenu({ select, text, language, activeId, onOpenChange }: {
+function SceneMenu({ select, text, language, activeId, enabled, onOpenChange }: {
   select: (index: number) => void
   text: Copy
   language: Language
   activeId: string
+  enabled: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const root = useRef<HTMLDivElement>(null)
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotionConfig()
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [browsing, setBrowsing] = useState(0)
-  const open = !dismissed && (hovered || focused || pinned)
+  const open = enabled && !dismissed && (hovered || focused || pinned)
   const candidate = themes[browsing]
 
   useEffect(() => { onOpenChange(open) }, [open, onOpenChange])
@@ -208,6 +209,8 @@ function SceneMenu({ select, text, language, activeId, onOpenChange }: {
     setFocused(false)
     setDismissed(true)
   }, [])
+
+  useEffect(() => { if (!enabled) close() }, [enabled, close])
 
   useEffect(() => {
     const outside = (event: PointerEvent) => {
@@ -321,7 +324,7 @@ function ThemePreview({ phase, theme, language, onReady, onConfirm, onCancel, te
   text: Copy
 
 }) {
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotionConfig()
 
   const dialog = useRef<HTMLDivElement>(null)
 
@@ -1855,6 +1858,7 @@ function IdleWidgets({ language, held, enabled, reduced, returnDuration = 9 }: {
 
 // Insert before App; uses the existing React useEffect/useRef imports.
 function StarGearCursor({ cinema = false }: { cinema?: boolean }) {
+  const reduced = useReducedMotionConfig()
   const rootRef = useRef<HTMLDivElement>(null)
   const needleRef = useRef<HTMLSpanElement>(null)
   const haloRef = useRef<HTMLSpanElement>(null)
@@ -1868,7 +1872,6 @@ function StarGearCursor({ cinema = false }: { cinema?: boolean }) {
     const halo = haloRef.current
     if (!root || !needle || !halo) return
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)")
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)")
     const nativeSelector = "input, textarea, select, iframe, [contenteditable]:not([contenteditable='false']), [data-cursor='native']"
     const controlSelector = "button:not(:disabled), a[href], [role='button']:not([aria-disabled='true']), [data-cursor='link']"
     const clockSelector = ".astrolabe, .clock-space-shard"
@@ -1915,7 +1918,7 @@ function StarGearCursor({ cinema = false }: { cinema?: boolean }) {
       if (!active) return
       const dt = Math.min(lastFrame ? (now - lastFrame) / 1000 : 1 / 60, .05)
       lastFrame = now
-      const amount = reduced.matches ? 1 : 1 - Math.exp(-dt * 24)
+      const amount = reduced ? 1 : 1 - Math.exp(-dt * 24)
       hx += (x - hx) * amount
       hy += (y - hy) * amount
       vx *= Math.exp(-dt * 11)
@@ -1924,12 +1927,12 @@ function StarGearCursor({ cinema = false }: { cinema?: boolean }) {
       const isIdle = now - lastMove > 1600
       root.dataset.idle = isIdle ? "true" : "false"
       // The small 8-tooth wheel is driven by the 16-tooth main wheel.
-      if (!reduced.matches) rotation = (rotation + dt * (isIdle ? 6 : 12 + speed * 85)) % 360
+      if (!reduced) rotation = (rotation + dt * (isIdle ? 6 : 12 + speed * 85)) % 360
       halo.style.transform = `translate3d(${hx}px, ${hy}px, 0)`
       root.style.setProperty("--sg-rotation", `${rotation}deg`)
       root.style.setProperty("--sg-counter-rotation", `${-rotation * 2}deg`)
-      root.style.setProperty("--sg-lean", `${reduced.matches ? 0 : Math.max(-8, Math.min(8, vx / 110))}deg`)
-      root.style.setProperty("--sg-stretch", `${reduced.matches ? 1 : 1 + speed * .055}`)
+      root.style.setProperty("--sg-lean", `${reduced ? 0 : Math.max(-8, Math.min(8, vx / 110))}deg`)
+      root.style.setProperty("--sg-stretch", `${reduced ? 1 : 1 + speed * .055}`)
       // In cinema the ornament is collapsed immediately; the pinpoint fades later.
       root.dataset.cinema = cinemaRef.current ? "true" : "false"
       if (!(isIdle && cinemaRef.current)) frame = requestAnimationFrame(draw)
@@ -1974,7 +1977,7 @@ function StarGearCursor({ cinema = false }: { cinema?: boolean }) {
       if (event.button !== 0 || !active || root.dataset.pressed !== "true") return
       root.dataset.pressed = "false"
       const ripple = rippleRef.current
-      if (!reduced.matches && !cinemaRef.current && ripple) {
+      if (!reduced && !cinemaRef.current && ripple) {
         pulse = ripple.animate([
           { transform: "scale(.55)", opacity: .65 },
           { transform: "scale(1.45)", opacity: .2, offset: .45 },
@@ -2015,7 +2018,7 @@ function StarGearCursor({ cinema = false }: { cinema?: boolean }) {
       window.removeEventListener("blur", hide)
       fine.removeEventListener("change", capability)
     }
-  }, [])
+  }, [reduced])
 
   return (
     <div ref={rootRef} className="star-gear-cursor" aria-hidden="true"
@@ -2183,7 +2186,6 @@ export default function App() {
   const [quoteReturn, setQuoteReturn] = useState(0)
   const [quoteActive, setQuoteActive] = useState(false)
   const [quoteHeld, setQuoteHeld] = useState(false)
-  const [stillMotionRequested, setStillMotionRequested] = useState(false)
   const quoteActiveRef = useRef(false)
   const quoteHoldIntent = useRef(false)
   const playbackRequest = useRef(0)
@@ -2195,10 +2197,7 @@ export default function App() {
   const [activeIndex, setActiveIndex] = useState(() => Math.floor(Math.random() * themes.length))
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const scene = themes[activeIndex]
-  const reduced = useReducedMotion()
-  // Explicit still-frame interaction enables its choreography for this scene.
-  // Automatic motion continues to follow the system preference.
-  const interactionReduced = Boolean(reduced) && !stillMotionRequested
+  const reduced = useReducedMotionConfig()
   const [language, setLanguage] = useState<Language>("zh")
   const [cinema, setCinema] = useState(false)
   const { status: playbackStatus, ready, paused: still, play: playFilm, pause: pauseFilm } = useVideoPlayback(video, scene.video)
@@ -2207,7 +2206,6 @@ export default function App() {
     if (!element) return
     const request = ++playbackRequest.current
     if (!element.paused && playbackStatus !== "error") {
-      setStillMotionRequested(true)
       quoteHoldIntent.current = true
       setQuoteHeld(true)
       if (!quoteActiveRef.current) {
@@ -2226,7 +2224,6 @@ export default function App() {
     playbackRequest.current += 1
     quoteHoldIntent.current = false
     setQuoteHeld(false)
-    setStillMotionRequested(false)
   }, [activeIndex])
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false)
   const [about, setAbout] = useState(false)
@@ -2244,6 +2241,7 @@ export default function App() {
   const closePreview = useCallback(() => setPreviewPhase(null), [])
   const text = { ...copy[language], sceneName: scene.name[language], themeCategory: scene.category[language] }
   const previewVisible = previewIndex !== null
+  const scrollLocked = about || contact || cinema || previewVisible
   const quoteEnabled = chapter === "home" && !about && !contact && !cinema && !previewVisible && !sceneMenuOpen && !intro
   // The 30-second cycle only runs when the quote is not held by the still control.
   useEffect(() => {
@@ -2272,19 +2270,8 @@ export default function App() {
         document.querySelector<HTMLButtonElement>(".scene-trigger")?.focus({ preventScroll: true })
         restoreSceneFocus.current = false
       }
-      return
     }
-    restoreSceneFocus.current = true
-    const root = document.documentElement
-    const previousOverflow = root.style.overflow
-    const previousPadding = document.body.style.paddingRight
-    const gutter = window.innerWidth - root.clientWidth
-    root.style.overflow = "hidden"
-    if (gutter > 0) document.body.style.paddingRight = String(gutter) + "px"
-    return () => {
-      root.style.overflow = previousOverflow
-      document.body.style.paddingRight = previousPadding
-    }
+    if (previewVisible) restoreSceneFocus.current = true
   }, [previewVisible])
   const environment = themes[previewPhase && previewIndex !== null ? previewIndex : activeIndex]
   const beginPreview = (index: number) => {
@@ -2303,35 +2290,45 @@ export default function App() {
   }
 
   const chapterMotion = useRef<ReturnType<typeof animate> | null>(null)
-  const chapterLock = useRef(false)
   const chapterTarget = useRef<number | null>(null)
+  const chapterUnlockTimer = useRef<number | undefined>(undefined)
   const workTop = () => {
     const zone = document.querySelector<HTMLElement>(".chapter-zone")
-    return zone ? Math.max(0, zone.offsetTop - 56) : null
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+    return zone ? Math.max(0, Math.min(zone.offsetTop - 56, maxScroll)) : null
   }
+  const stopChapterScroll = useCallback(() => {
+    chapterMotion.current?.stop()
+    chapterMotion.current = null
+    chapterTarget.current = null
+    window.clearTimeout(chapterUnlockTimer.current)
+    chapterUnlockTimer.current = undefined
+  }, [])
+  const scheduleChapterUnlock = useCallback(() => {
+    window.clearTimeout(chapterUnlockTimer.current)
+    chapterUnlockTimer.current = window.setTimeout(() => {
+      chapterTarget.current = null
+      chapterUnlockTimer.current = undefined
+    }, 420)
+  }, [])
   const glideTo = useCallback((top: number) => {
     setIntro(false)
-    chapterMotion.current?.stop()
-    if (reduced) {
+    stopChapterScroll()
+    if (reduced || Math.abs(window.scrollY - top) < 1) {
       window.scrollTo({ top, behavior: "instant" })
       return
     }
-    chapterLock.current = true
     chapterTarget.current = top
     chapterMotion.current = animate(window.scrollY, top, {
       duration: 0.82,
       ease: [0.76, 0, 0.24, 1],
       onUpdate: (value) => window.scrollTo({ top: value, behavior: "instant" }),
       onComplete: () => {
-        window.setTimeout(() => {
-          if (chapterTarget.current === top) {
-            chapterLock.current = false
-            chapterTarget.current = null
-          }
-        }, 420)
+        chapterMotion.current = null
+        scheduleChapterUnlock()
       },
     })
-  }, [reduced])
+  }, [reduced, stopChapterScroll, scheduleChapterUnlock])
   const toWork = () => {
     const top = workTop()
     if (top !== null) glideTo(top)
@@ -2339,26 +2336,87 @@ export default function App() {
   const toHome = () => glideTo(0)
 
   useEffect(() => {
-    if (about || contact || cinema || previewVisible) return
+    if (!scrollLocked) return
+    stopChapterScroll()
+    const root = document.documentElement
+    const previousOverflow = root.style.overflow
+    const previousPadding = document.body.style.paddingRight
+    const gutter = window.innerWidth - root.clientWidth
+    root.style.overflow = "hidden"
+    if (gutter > 0) document.body.style.paddingRight = String(gutter) + "px"
+    return () => {
+      root.style.overflow = previousOverflow
+      document.body.style.paddingRight = previousPadding
+    }
+  }, [scrollLocked, stopChapterScroll])
+
+  useEffect(() => {
+    if (scrollLocked) return
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return
+      if (e.composedPath().some((node) => node instanceof HTMLElement &&
+        node.scrollHeight > node.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(node).overflowY))) return
+      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1)
+      if (delta === 0) return
       const top = workTop()
       if (top === null) return
       const y = window.scrollY
-      const down = e.deltaY > 0 && y < top - 2
-      const up = e.deltaY < 0 && y > 2 && y <= top + 2
+      const next = delta > 0 ? top : 0
+      // Keep the wheel gesture's momentum from moving past its chapter target.
+      if (chapterTarget.current === next) {
+        e.preventDefault()
+        if (!chapterMotion.current) scheduleChapterUnlock()
+        return
+      }
+      const down = delta > 0 && y < top - 2
+      const up = delta < 0 && y > 2 && y <= top + 2
       if (!down && !up) return
       e.preventDefault()
-      if (Math.abs(e.deltaY) < 4) return
-      const next = down ? top : 0
-      // 同方向的惯性滚动忽略；反方向随时打断并掉头
-      if (chapterLock.current && chapterTarget.current === next) return
       glideTo(next)
     }
     window.addEventListener("wheel", onWheel, { passive: false })
     return () => window.removeEventListener("wheel", onWheel)
-  }, [about, contact, cinema, previewVisible, glideTo])
-  useEffect(() => () => chapterMotion.current?.stop(), [])
+  }, [scrollLocked, glideTo, scheduleChapterUnlock])
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) stopChapterScroll()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("pointerdown", stopChapterScroll, { passive: true })
+    window.addEventListener("resize", stopChapterScroll)
+    window.addEventListener("touchstart", stopChapterScroll, { passive: true })
+    return () => {
+      stopChapterScroll()
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("pointerdown", stopChapterScroll)
+      window.removeEventListener("resize", stopChapterScroll)
+      window.removeEventListener("touchstart", stopChapterScroll)
+    }
+  }, [stopChapterScroll])
+
+  useEffect(() => {
+    if (!about && !contact) return
+    const panel = document.querySelector<HTMLElement>(".about-panel")
+    const previousFocus = document.activeElement as HTMLElement | null
+    panel?.querySelector<HTMLButtonElement>(".close")?.focus({ preventScroll: true })
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !panel) return
+      const controls = Array.from(panel.querySelectorAll<HTMLElement>("button:not(:disabled), a[href]"))
+      const first = controls[0], last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus({ preventScroll: true })
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus({ preventScroll: true })
+      }
+    }
+    document.addEventListener("keydown", trapFocus)
+    return () => {
+      document.removeEventListener("keydown", trapFocus)
+      previousFocus?.focus({ preventScroll: true })
+    }
+  }, [about, contact])
 
   useEffect(() => {
     const escape = (e: KeyboardEvent) => {
@@ -2420,7 +2478,6 @@ export default function App() {
     } as React.CSSProperties}>
       <section
         id="top"
-        data-still-motion={stillMotionRequested || undefined}
         className={`hero ${cinema ? "cinema" : ""} ${previewVisible ? "is-preview" : ""} ${still ? "is-still" : ""} ${ready ? "has-video-frame" : ""} ${chapter === "work" ? "is-work-chapter" : ""}`}
         aria-label={text.heroLabel}
       >
@@ -2446,7 +2503,7 @@ export default function App() {
         </div>
 
         <QuoteFlight sourceRef={quoteSource} bundleRef={quoteBundle} text={text.manifesto} run={quoteRun} mode={quoteMode}
-          returnRequest={quoteReturn} held={quoteHeld} enabled={quoteEnabled} reduced={interactionReduced}
+          returnRequest={quoteReturn} held={quoteHeld} enabled={quoteEnabled} reduced={Boolean(reduced)}
           exclusion={scene.quoteExclusion} onActiveChange={onQuoteActiveChange} />
 
         <AnimatePresence onExitComplete={finishPreviewExit}>
@@ -2466,12 +2523,12 @@ export default function App() {
 
             <motion.div
               className="ui"
-              inert={previewVisible || cinema}
-              aria-hidden={previewVisible || cinema}
+              inert={scrollLocked}
+              aria-hidden={scrollLocked}
               key="ui"
               initial={{ opacity: 0 }}
               animate={{ opacity: cinema ? 0 : 1 }}
-              style={{ pointerEvents: previewVisible || cinema ? "none" : undefined }}
+              style={{ pointerEvents: scrollLocked ? "none" : undefined }}
               exit={{ opacity: 0 }}
             >
               <motion.header
@@ -2542,6 +2599,7 @@ export default function App() {
                   text={text}
                   language={language}
                   activeId={scene.id}
+                  enabled={chapter === "home" && !scrollLocked}
                   onOpenChange={setSceneMenuOpen}
                 />
               </motion.aside>
@@ -2611,7 +2669,7 @@ export default function App() {
                     <button ref={quoteSource} type="button"
                       className={`quote-trigger ${quoteActive ? "is-flying" : ""}`}
                       aria-label={language === "zh" ? `${text.manifesto}。${quoteHeld ? "播放影片后文字归位" : quoteActive ? "点击收拢文字" : "点击展开文字"}` : `${text.manifesto} ${quoteHeld ? "Play the film to return the words" : quoteActive ? "Return the words" : "Unfold the words"}`}
-                      aria-pressed={quoteActive} disabled={!quoteEnabled || Boolean(reduced)}
+                      aria-pressed={quoteActive} disabled={!quoteEnabled}
                       onClick={() => {
                         if (quoteHeld) return
                         if (quoteActive) setQuoteReturn((value) => value + 1)
@@ -2671,7 +2729,7 @@ export default function App() {
                 animate={{ opacity: chapter === "home" ? 1 : 0 }}
                 transition={{ duration: reduced ? 0 : .6 }}
               >
-                <IdleWidgets language={language} held={quoteHeld} enabled={quoteEnabled} reduced={interactionReduced} />
+                <IdleWidgets language={language} held={quoteHeld} enabled={quoteEnabled} reduced={Boolean(reduced)} />
               </motion.div>
               <motion.footer
                 className="bottombar"
@@ -2728,6 +2786,9 @@ export default function App() {
           {about && (
             <motion.aside
               className="about-panel has-portrait"
+              role="dialog"
+              aria-modal="true"
+              aria-label={text.about}
               data-language={language}
               initial={{ opacity: 0, x: "100%" }}
               animate={{ opacity: 1, x: 0 }}
@@ -2766,6 +2827,8 @@ export default function App() {
           {contact && (
             <motion.aside
               className="about-panel contact-panel"
+              role="dialog"
+              aria-modal="true"
               initial={{ opacity: 0, x: "100%" }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: "100%" }}
@@ -2795,8 +2858,8 @@ export default function App() {
 
       <div className={`chapter-zone ${cinema ? "is-cinema" : ""}`}>
         <div id="chapter-boundary" className="chapter-boundary"
-          inert={cinema || sceneMenuOpen || previewVisible}
-          aria-hidden={cinema || sceneMenuOpen || previewVisible}>
+          inert={scrollLocked || sceneMenuOpen}
+          aria-hidden={scrollLocked || sceneMenuOpen}>
           <motion.button
             className={`chapter-control ${
               chapter === "home" ? "is-down" : "is-up"
@@ -2826,7 +2889,7 @@ export default function App() {
 
         </div>
 
-        <section id="work-index" className="work-index" inert={previewVisible} aria-hidden={previewVisible}>
+        <section id="work-index" className="work-index" inert={scrollLocked} aria-hidden={scrollLocked}>
 
           <header>
 
